@@ -1,0 +1,42 @@
+{
+  "name": "ระบบยืม-คืน กพ.7 สพป.ชัยนาท",
+  "short_name": "KP7 System",
+  "description": "ระบบจัดการการยืม-คืน กพ.7 สำหรับ สพป.ชัยนาท",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3498db",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "ยืม กพ.7",
+      "short_name": "ยืม",
+      "description": "บันทึกการยืม กพ.7",
+      "url": "/borrow",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "คืน กพ.7",
+      "short_name": "คืน",
+      "description": "บันทึกการคืน กพ.7",
+      "url": "/return",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
