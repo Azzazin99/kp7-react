@@ -61,14 +61,9 @@ const AdminDashboard = () => {
 
     const fetchWithAuth = async (url, options = {}) => {
         const token = sessionStorage.getItem('adminToken');
-        const demoMode = new URLSearchParams(window.location.search).get('demo') === 'true';
-        if (!token && !demoMode) {
+        if (!token) {
             navigate('/login');
             throw new Error('No token found');
-        }
-        if (demoMode) {
-            // In demo mode, don't make real API calls
-            return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
 
         const headers = {
@@ -146,45 +141,7 @@ const AdminDashboard = () => {
 
     const REFRESH_INTERVAL_MS = 30000;
 
-    // ===== DEMO MODE =====
-    const isDemo = new URLSearchParams(window.location.search).get('demo') === 'true';
-
-    const DEMO_TRANSACTIONS = [
-        { rowIndex: 2, timestamp: '03/03/2569 09:15', school: 'โรงเรียนอนุบาลชัยนาท', name: 'นางสาวสมใจ รักเรียน', phone: '081-234-xxxx', position: 'ครู', coordCenter: '', folderNo: 'กพ.7-001', reason: 'ต่อใบอนุญาตประกอบวิชาชีพ', status: 'Returned', returnTimestamp: '05/03/2569 14:30' },
-        { rowIndex: 3, timestamp: '05/03/2569 10:42', school: 'โรงเรียนวัดธรรมามูล', name: 'นายประสิทธิ์ ใจดี', phone: '089-567-xxxx', position: 'ครู', coordCenter: '', folderNo: 'กพ.7-002', reason: 'ทำวิทยฐานะ', status: 'Borrowed' },
-        { rowIndex: 4, timestamp: '07/03/2569 08:30', school: 'โรงเรียนชุมชนวัดดักคะนน', name: 'นางวิภา สุขสันต์', phone: '092-345-xxxx', position: 'ครู', coordCenter: '', folderNo: 'กพ.7-003', reason: 'ต่อใบอนุญาตประกอบวิชาชีพ', status: 'Returned', returnTimestamp: '08/03/2569 10:00' },
-        { rowIndex: 5, timestamp: '08/03/2569 13:20', school: 'โรงเรียนวัดศรีวิชัย', name: 'นายวิชัย มานะ', phone: '085-678-xxxx', position: 'ครู', coordCenter: '', folderNo: 'กพ.7-004', reason: 'ขอมีบัตรประจำตัวเจ้าหน้าที่ของรัฐ', status: 'Borrowed' },
-        { rowIndex: 6, timestamp: '09/03/2569 09:00', school: 'โรงเรียนบ้านหนองแค', name: 'นางสาวพรทิพย์ แก้วใส', phone: '063-890-xxxx', position: 'ครู', coordCenter: '', folderNo: 'กพ.7-005', reason: 'ทำวิทยฐานะ', status: 'Returned', returnTimestamp: '10/03/2569 11:15' },
-        { rowIndex: 7, timestamp: '10/03/2569 10:15', school: 'โรงเรียนวัดหนองจิก', name: 'นายอนุชา ก้าวหน้า', phone: '097-123-xxxx', position: 'ครูผู้ช่วย', coordCenter: '', folderNo: 'กพ.7-006', reason: 'ต่อใบอนุญาตประกอบวิชาชีพ', status: 'Borrowed' },
-        { rowIndex: 8, timestamp: '10/03/2569 14:45', school: 'โรงเรียนอนุบาลหันคา', name: 'นางมาลี ศรีสุข', phone: '088-456-xxxx', position: 'ครู', coordCenter: '', folderNo: 'กพ.7-007', reason: 'ประกอบการเกษียณอายุราชการ', status: 'Returned', returnTimestamp: '11/03/2569 09:30' },
-        { rowIndex: 9, timestamp: '11/03/2569 08:50', school: 'โรงเรียนวัดคลองบุญนาค', name: 'นายธีรพงศ์ พัฒนา', phone: '064-789-xxxx', position: 'ครู', coordCenter: '', folderNo: 'กพ.7-008', reason: 'โอนย้ายสังกัด', status: 'Borrowed' },
-        { rowIndex: 10, timestamp: '11/03/2569 11:30', school: 'โรงเรียนชุมชนวัดดักคะนน', name: 'นางนิตยา รุ่งเรือง', phone: '091-012-xxxx', position: 'ครู', coordCenter: '', folderNo: 'กพ.7-009', reason: 'ต่อใบอนุญาตประกอบวิชาชีพ', status: 'Returned', returnTimestamp: '11/03/2569 16:00' },
-        { rowIndex: 11, timestamp: '12/03/2569 09:20', school: 'โรงเรียนวัดใหญ่', name: 'นายสมชาย ขยันดี', phone: '082-345-xxxx', position: 'ครู', coordCenter: '', folderNo: 'กพ.7-010', reason: 'ทำวิทยฐานะ', status: 'Borrowed' },
-    ];
-
-    const DEMO_OVERDUE = DEMO_TRANSACTIONS.filter(t => t.status === 'Borrowed');
-
-    const DEMO_AUDIT_LOGS = [
-        { timestamp: '12/03/2569 09:20', user: 'ระบบ', action: 'BORROW', details: 'นายสมชาย ขยันดี ยืม กพ.7-010' },
-        { timestamp: '11/03/2569 16:00', user: 'ระบบ', action: 'RETURN', details: 'นางนิตยา รุ่งเรือง คืน กพ.7-009' },
-        { timestamp: '11/03/2569 11:30', user: 'ระบบ', action: 'BORROW', details: 'นางนิตยา รุ่งเรือง ยืม กพ.7-009' },
-        { timestamp: '11/03/2569 08:50', user: 'ระบบ', action: 'BORROW', details: 'นายธีรพงศ์ พัฒนา ยืม กพ.7-008' },
-        { timestamp: '10/03/2569 14:45', user: 'ระบบ', action: 'BORROW', details: 'นางมาลี ศรีสุข ยืม กพ.7-007' },
-        { timestamp: '10/03/2569 10:15', user: 'admin', action: 'LOGIN', details: 'เข้าสู่ระบบสำเร็จ' },
-    ];
-    // ===== END DEMO MODE =====
-
     useEffect(() => {
-        if (isDemo) {
-            // Demo mode: use fake data, skip API calls
-            setTransactions(DEMO_TRANSACTIONS);
-            setFilteredTransactions(DEMO_TRANSACTIONS);
-            setOverdueItems(DEMO_OVERDUE);
-            setAuditLogs(DEMO_AUDIT_LOGS);
-            setLastUpdated(new Date());
-            setAllSchools([...new Set(DEMO_TRANSACTIONS.map(t => t.school))]);
-            return;
-        }
         loadData();
         loadSchools();
         loadOverdueItems();
@@ -226,7 +183,7 @@ const AdminDashboard = () => {
             if (errMsg) setDataLoadError(errMsg);
             else setDataLoadError('');
             const data = await res.json();
-            const sorted = Array.isArray(data) ? data : [];
+            const sorted = [...(Array.isArray(data) ? data : [])].reverse();
             setTransactions(sorted);
             setFilteredTransactions(sorted);
             setLastUpdated(new Date());
@@ -297,8 +254,9 @@ const AdminDashboard = () => {
             const url = editingUser ? `/api/users/${editingUser.id}` : '/api/users';
             const method = editingUser ? 'PUT' : 'POST';
 
-            const res = await fetchWithAuth(url, {
+            const res = await fetch(url, {
                 method,
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(userForm)
             });
@@ -322,8 +280,9 @@ const AdminDashboard = () => {
         if (!confirm('ยืนยันการลบผู้ใช้?')) return;
 
         try {
-            const res = await fetchWithAuth(`/api/users/${userId}`, {
-                method: 'DELETE'
+            const res = await fetch(`/api/users/${userId}`, {
+                method: 'DELETE',
+                credentials: 'include'
             });
 
             if (res.ok) {
@@ -354,8 +313,9 @@ const AdminDashboard = () => {
         if (!confirm('ส่งอีเมลแจ้งเตือนรายการค้างส่งทั้งหมด?')) return;
 
         try {
-            const res = await fetchWithAuth('/api/email/notify-overdue', {
+            const res = await fetch('/api/email/notify-overdue', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' }
             });
             const result = await res.json();
@@ -472,8 +432,9 @@ const AdminDashboard = () => {
         if (!confirm(`ยืนยันคืนของทั้งหมด ${selectedItems.size} รายการ?`)) return;
 
         try {
-            const res = await fetchWithAuth('/api/bulk-return', {
+            const res = await fetch('/api/bulk-return', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rowIndices: Array.from(selectedItems) })
             });
@@ -490,8 +451,9 @@ const AdminDashboard = () => {
     const handleReturn = async (rowIndex) => {
         if (!confirm('ยืนยันว่ารายการนี้คืนของแล้ว?')) return;
         try {
-            const res = await fetchWithAuth('/api/return', {
+            const res = await fetch('/api/return', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rowIndex })
             });
@@ -510,8 +472,9 @@ const AdminDashboard = () => {
         if (!confirm('ยืนยันเป็นครั้งสุดท้าย ลบจริงหรือไม่?')) return;
 
         try {
-            const res = await fetchWithAuth('/api/delete-transaction', {
+            const res = await fetch('/api/delete-transaction', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rowIndex })
             });
@@ -528,8 +491,9 @@ const AdminDashboard = () => {
     const handleCleanData = async () => {
         if (!confirm('ต้องการจัดระเบียบข้อมูล "เหตุผลการยืม" อัตโนมัติหรือไม่?')) return;
         try {
-            const res = await fetchWithAuth('/api/clean-reasons', {
-                method: 'POST'
+            const res = await fetch('/api/clean-reasons', {
+                method: 'POST',
+                credentials: 'include'
             });
             const result = await res.json();
             if (result.success) {

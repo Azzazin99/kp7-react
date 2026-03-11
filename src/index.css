@@ -458,12 +458,7 @@ input[type="text"],
 table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: auto;
-}
-
-th,
-td {
-    min-width: 40px;
+    table-layout: fixed;
 }
 
 th {

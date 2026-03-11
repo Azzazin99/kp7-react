@@ -11,8 +11,7 @@ import './index.css';
 
 const PrivateRoute = ({ children }) => {
   const token = sessionStorage.getItem('adminToken');
-  const isDemo = new URLSearchParams(window.location.search).get('demo') === 'true';
-  return (token || isDemo) ? children : <Navigate to="/login" replace />;
+  return token ? children : <Navigate to="/login" replace />;
 };
 
 function App() {
