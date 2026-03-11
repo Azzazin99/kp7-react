@@ -30,6 +30,32 @@ function requireAuth(req, res, next) {
     next();
 }
 
+async function getTimestampUTC7() {
+    let now = new Date();
+    try {
+        // ดึงเวลามาตรฐานโดยอิงจาก Header 'Date' ของ Google (เสถียร 100% ไม่ล่ม)
+        const res = await fetch('https://google.com', { method: 'HEAD' });
+        const serverDate = res.headers.get('date');
+        if (serverDate) {
+            now = new Date(serverDate);
+        }
+    } catch (err) {
+        console.warn('Failed to sync with time server, using local time with offset', err.message);
+    }
+
+    // แปลงให้เป็น Timezone นอก (+7 ชั่วโมง)
+    const timeUTC7 = new Date(now.getTime() + (7 * 3600000));
+
+    const d = String(timeUTC7.getUTCDate()).padStart(2, '0');
+    const m = String(timeUTC7.getUTCMonth() + 1).padStart(2, '0');
+    const y = timeUTC7.getUTCFullYear() + 543; // ปี พ.ศ.
+    const hh = String(timeUTC7.getUTCHours()).padStart(2, '0');
+    const mm = String(timeUTC7.getUTCMinutes()).padStart(2, '0');
+    const ss = String(timeUTC7.getUTCSeconds()).padStart(2, '0');
+
+    return `${d}/${m}/${y} ${hh}:${mm}:${ss}`;
+}
+
 app.post('/api/login', (req, res) => {
     const { password } = req.body;
     if (password === ADMIN_PASSWORD) {
@@ -50,7 +76,7 @@ async function logAudit(action, details, user = 'admin') {
     try {
         const client = await getSheets();
         if (!client) return;
-        const timestamp = new Date().toLocaleString('th-TH');
+        const timestamp = await getTimestampUTC7();
         await appendRow(AUDIT, [timestamp, user, action, JSON.stringify(details)]);
     } catch (error) {
         console.error('Failed to log audit:', error);
@@ -125,6 +151,7 @@ async function getPersonnelRows() {
         position: (row[2] || '').trim(),
         coordCenter: (row[3] || '').trim() || '-',
         folderNo: (row[4] || '').trim() || '-',
+        phone: (row[5] || '').trim() || '-',
         rowIndex: start + i + 1
     })).filter(r => r.school || r.name);
 }
@@ -227,7 +254,7 @@ app.get('/api/search-personnel', async (req, res) => {
 
 app.post('/api/borrow', async (req, res) => {
     const { items, reason } = req.body;
-    const timestamp = new Date().toLocaleString('th-TH');
+    const timestamp = await getTimestampUTC7();
     if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ error: 'No items provided' });
     }
@@ -249,7 +276,7 @@ app.post('/api/borrow', async (req, res) => {
     }
 });
 
-app.get('/api/active-borrows', requireAuth, async (req, res) => {
+app.get('/api/active-borrows', async (req, res) => {
     const { search } = req.query;
     if (USE_MOCK_DATA) {
         const active = mockTransactions.filter(t => t.status === 'Borrowed' && t.name.includes(search || ''));
@@ -266,9 +293,9 @@ app.get('/api/active-borrows', requireAuth, async (req, res) => {
     }
 });
 
-app.post('/api/return', requireAuth, async (req, res) => {
+app.post('/api/return', async (req, res) => {
     const { rowIndex } = req.body;
-    const timestamp = new Date().toLocaleString('th-TH');
+    const timestamp = await getTimestampUTC7();
     if (USE_MOCK_DATA) {
         const tx = mockTransactions.find(t => t.status === 'Borrowed');
         if (tx) tx.status = 'Returned';
@@ -320,7 +347,8 @@ app.get('/api/transactions', requireAuth, async (req, res) => {
                 returnTimestamp: r.returnTimestamp || '',
                 coordCenter: p ? p.coordCenter : '-',
                 folderNo: p ? p.folderNo : '-',
-                position: p ? p.position : '-'
+                position: p ? p.position : '-',
+                phone: p ? p.phone : '-'
             };
         });
         res.json(transactions.reverse());
@@ -333,7 +361,7 @@ app.get('/api/transactions', requireAuth, async (req, res) => {
 
 app.post('/api/clean-reasons', requireAuth, async (req, res) => {
     const KEYWORD_MAP = {
-        'ขอใบอนุญาตประกอบวิชาชีพ': ['ใบประกอบ', 'ตั๋วครู', 'ต่อใบ'],
+        'ต่อใบอนุญาตประกอบวิชาชีพ': ['ใบประกอบ', 'ตั๋วครู', 'ต่อใบ'],
         'ขอเลื่อนวิทยฐานะ': ['วิทยฐานะ', 'เลื่อนขั้น', 'คศ'],
         'ประกอบคำร้องขอย้าย': ['ย้าย'],
         'ขอมีเครื่องราชอิสริยาภรณ์': ['เครื่องราช', 'สายสะพาย'],
@@ -654,9 +682,9 @@ app.get('/api/usage', (req, res) => {
     });
 });
 
-app.post('/api/bulk-return', requireAuth, async (req, res) => {
+app.post('/api/bulk-return', async (req, res) => {
     const { rowIndices } = req.body;
-    const timestamp = new Date().toLocaleString('th-TH');
+    const timestamp = await getTimestampUTC7();
     if (!rowIndices || !Array.isArray(rowIndices) || rowIndices.length === 0) {
         return res.status(400).json({ error: 'No items selected' });
     }

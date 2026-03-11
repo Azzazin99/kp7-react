@@ -259,28 +259,49 @@ const BorrowForm = () => {
                     <div className="form-group slide-in-up" style={{ animationDelay: '0.1s' }}>
                         <label>3. ระบุเหตุผลการขอยืม</label>
                         <div className="card" style={{ padding: '20px' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
-                                {['ขอใบอนุญาตประกอบวิชาชีพ', 'ขอเลื่อนวิทยฐานะ', 'ประกอบคำร้องขอย้าย', 'ขอมีเครื่องราชอิสริยาภรณ์', 'ขอสมัครงาน', 'ขอลาออก', 'สมัครสมาชิกสหกรณ์ออมทรัพย์ครู', 'ส่งผลงาน', 'ส่งครูดีเด่น', 'ส่งข้าราชการดีเด่น', 'แนบสรุปครูผู้ช่วย ก.พ.7'].map(r => (
-                                    <label key={r} style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        padding: '10px',
-                                        borderRadius: '8px',
-                                        border: reasons.includes(r) ? '1px solid var(--primary-color)' : '1px solid transparent',
-                                        background: reasons.includes(r) ? 'rgba(102, 126, 234, 0.1)' : 'transparent',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s'
-                                    }}>
-                                        <input
-                                            type="checkbox"
-                                            value={r}
-                                            onChange={handleReasonChange}
-                                            checked={reasons.includes(r)}
-                                            style={{ width: '18px', height: '18px', marginRight: '10px', accentColor: 'var(--primary-color)' }}
-                                        />
-                                        {r}
-                                    </label>
-                                ))}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                {['ต่อใบอนุญาตประกอบวิชาชีพ', 'ขอเลื่อนวิทยฐานะ', 'ประกอบคำร้องขอย้าย', 'ขอมีเครื่องราชอิสริยาภรณ์', 'ขอสมัครงาน', 'ขอลาออก', 'สมัครสมาชิกสหกรณ์ออมทรัพย์ครู', 'ส่งผลงาน', 'ส่งครูดีเด่น', 'ส่งข้าราชการดีเด่น', 'แนบสรุปครูผู้ช่วย ก.พ.7'].map(r => {
+                                    const isSelected = reasons.includes(r);
+                                    return (
+                                        <label key={r} style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            padding: '8px 16px',
+                                            borderRadius: '24px',
+                                            border: `1px solid ${isSelected ? 'var(--primary-color)' : 'var(--border-color)'}`,
+                                            backgroundColor: isSelected ? 'var(--primary-color)' : 'var(--card-bg)',
+                                            color: isSelected ? '#ffffff' : 'var(--text-color)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease-in-out',
+                                            fontSize: '0.95rem',
+                                            fontWeight: isSelected ? '500' : 'normal',
+                                            whiteSpace: 'nowrap',
+                                            boxShadow: isSelected ? '0 4px 12px rgba(102, 126, 234, 0.3)' : '0 2px 4px rgba(0,0,0,0.02)',
+                                            userSelect: 'none'
+                                        }}
+                                            onMouseEnter={(e) => {
+                                                if (!isSelected) {
+                                                    e.currentTarget.style.borderColor = '#a0aec0';
+                                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!isSelected) {
+                                                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                                                    e.currentTarget.style.transform = 'translateY(0)';
+                                                }
+                                            }}>
+                                            <input
+                                                type="checkbox"
+                                                value={r}
+                                                onChange={handleReasonChange}
+                                                checked={isSelected}
+                                                style={{ display: 'none' }} // Hide the actual checkbox
+                                            />
+                                            {r}
+                                        </label>
+                                    );
+                                })}
                             </div>
                             <div style={{ marginTop: '15px', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
                                 <label style={{ fontWeight: 'normal', display: 'flex', alignItems: 'center' }}>
