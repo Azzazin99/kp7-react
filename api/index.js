@@ -11,12 +11,56 @@ import crypto from 'crypto';
 
 const app = express();
 
+// Security Hardening Headers
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+});
+
 app.use(cors({ origin: true, credentials: true }));
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '1mb' }));
+
+// Timing-Safe String Comparison (Prevents Side-Channel Timing Attacks)
+function timingSafeCompare(a, b) {
+    if (typeof a !== 'string' || typeof b !== 'string') return false;
+    const bufA = Buffer.from(a);
+    const bufB = Buffer.from(b);
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+}
 
 // Token-based Auth Middleware
 const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || '369369').trim();
 const AUTH_TOKEN = crypto.createHash('sha256').update(ADMIN_PASSWORD + 'kp7-salt').digest('hex');
+
+// In-Memory Login Rate Limiter (Brute-force protection: max 5 failed attempts per IP / min)
+const loginAttempts = new Map();
+function loginRateLimiter(req, res, next) {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    const entry = loginAttempts.get(ip) || { failed: 0, resetTime: now + 60000 };
+
+    if (now > entry.resetTime) {
+        entry.failed = 0;
+        entry.resetTime = now + 60000;
+    }
+
+    if (entry.failed >= 5) {
+        const waitSec = Math.ceil((entry.resetTime - now) / 1000);
+        return res.status(429).json({
+            success: false,
+            error: `เข้าสู่ระบบผิดพลาดเกินกำหนด กรุณารอ ${waitSec} วินาทีก่อนลองใหม่`
+        });
+    }
+
+    req._loginEntry = entry;
+    req._clientIp = ip;
+    next();
+}
 
 function requireAuth(req, res, next) {
     const authHeader = req.headers.authorization;
@@ -24,18 +68,23 @@ function requireAuth(req, res, next) {
         return res.status(401).json({ error: 'Unauthorized: No token provided' });
     }
     const token = authHeader.split(' ')[1];
-    if (token !== AUTH_TOKEN) {
+    if (!timingSafeCompare(token, AUTH_TOKEN)) {
         return res.status(401).json({ error: 'Unauthorized: Invalid token' });
     }
     next();
 }
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', loginRateLimiter, (req, res) => {
     const { password } = req.body;
-    if (password === ADMIN_PASSWORD) {
+    if (password && timingSafeCompare(password, ADMIN_PASSWORD)) {
+        if (req._loginEntry) loginAttempts.delete(req._clientIp);
         return res.json({ success: true, token: AUTH_TOKEN });
     }
-    return res.status(401).json({ success: false, error: 'Invalid password' });
+    if (req._loginEntry) {
+        req._loginEntry.failed++;
+        loginAttempts.set(req._clientIp, req._loginEntry);
+    }
+    return res.status(401).json({ success: false, error: 'รหัสผ่านไม่ถูกต้อง' });
 });
 
 const USE_MOCK_DATA = false;
@@ -217,7 +266,7 @@ app.get('/api/search-personnel', async (req, res) => {
     try {
         const rows = await getPersonnelRows();
         const lower = String(q).toLowerCase();
-        const filtered = rows.filter(r => (r.name || '').toLowerCase().includes(lower)).slice(0, 50);
+        const filtered = rows.filter(r => (r.name || '').toLowerCase().includes(lower) || (r.school || '').toLowerCase().includes(lower)).slice(0, 50);
         return res.json(filtered.map(r => ({ id: String(r.rowIndex), school: r.school, name: r.name, position: r.position })));
     } catch (error) {
         console.error(error);
@@ -669,6 +718,29 @@ app.post('/api/bulk-return', requireAuth, async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Failed to bulk return' });
+    }
+});
+
+app.post('/api/bulk-delete', requireAuth, async (req, res) => {
+    const { rowIndices } = req.body;
+    if (!rowIndices || !Array.isArray(rowIndices) || rowIndices.length === 0) {
+        return res.status(400).json({ error: 'No items selected' });
+    }
+    const validRows = [...new Set(rowIndices.map(r => parseInt(r, 10)).filter(r => !isNaN(r) && r >= 2))]
+        .sort((a, b) => b - a);
+
+    if (validRows.length === 0) {
+        return res.status(400).json({ error: 'Invalid row indices' });
+    }
+    if (USE_MOCK_DATA) return res.json({ success: true, count: validRows.length });
+    try {
+        for (const rowNum of validRows) {
+            await deleteRow(TX, rowNum);
+        }
+        res.json({ success: true, count: validRows.length });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to bulk delete' });
     }
 });
 

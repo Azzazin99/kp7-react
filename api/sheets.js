@@ -19,10 +19,10 @@ function getAuth() {
         try {
             creds = JSON.parse(envCreds);
         } catch (e) {
-            console.warn('GOOGLE_CREDENTIALS invalid JSON');
-            return null;
+            console.warn('GOOGLE_CREDENTIALS invalid JSON, checking credentials.json');
         }
-    } else {
+    }
+    if (!creds) {
         const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || path.join(__dirname, '..', 'credentials.json');
         if (!fs.existsSync(credPath)) {
             console.warn('credentials.json not found and GOOGLE_CREDENTIALS not set');

@@ -5,7 +5,7 @@ import { Line, Doughnut } from 'react-chartjs-2';
 import { useTheme } from '../context/ThemeContext';
 import ThemeToggle from './ThemeToggle';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Eye, EyeOff, Download, FileText, AlertCircle, History, Gamepad2, ChevronLeft, ChevronRight, LayoutDashboard, BarChart3, ClipboardList, ScrollText, Users, Home, Settings, LogOut } from 'lucide-react';
+import { Trash2, Eye, EyeOff, Download, FileText, AlertCircle, History, Gamepad2, ChevronLeft, ChevronRight, LayoutDashboard, BarChart3, ClipboardList, ScrollText, Users, Home, Settings, LogOut, CheckCircle } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, Filler);
 
@@ -254,9 +254,8 @@ const AdminDashboard = () => {
             const url = editingUser ? `/api/users/${editingUser.id}` : '/api/users';
             const method = editingUser ? 'PUT' : 'POST';
 
-            const res = await fetch(url, {
+            const res = await fetchWithAuth(url, {
                 method,
-                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(userForm)
             });
@@ -272,7 +271,7 @@ const AdminDashboard = () => {
             }
         } catch (err) {
             console.error(err);
-            alert('เกิดข้อผิดพลาด');
+            alert('เกิดข้อผิดพลาด: ' + err.message);
         }
     };
 
@@ -280,9 +279,8 @@ const AdminDashboard = () => {
         if (!confirm('ยืนยันการลบผู้ใช้?')) return;
 
         try {
-            const res = await fetch(`/api/users/${userId}`, {
-                method: 'DELETE',
-                credentials: 'include'
+            const res = await fetchWithAuth(`/api/users/${userId}`, {
+                method: 'DELETE'
             });
 
             if (res.ok) {
@@ -293,7 +291,7 @@ const AdminDashboard = () => {
             }
         } catch (err) {
             console.error(err);
-            alert('เกิดข้อผิดพลาด');
+            alert('เกิดข้อผิดพลาด: ' + err.message);
         }
     };
 
@@ -408,13 +406,9 @@ const AdminDashboard = () => {
     // Bulk Selection Logic
     const handleSelectAll = (e) => {
         if (e.target.checked) {
-            // Select all currently filtered items that are 'Borrowed'
-            const borrowIds = new Set(
-                filteredTransactions
-                    .filter(item => item.status === 'Borrowed')
-                    .map(item => item.rowIndex)
-            );
-            setSelectedItems(borrowIds);
+            // Select all rows on current page / filtered items
+            const allIds = new Set(currentItems.map(item => item.rowIndex));
+            setSelectedItems(allIds);
         } else {
             setSelectedItems(new Set());
         }
@@ -429,31 +423,65 @@ const AdminDashboard = () => {
 
     const handleBulkReturn = async () => {
         if (selectedItems.size === 0) return;
-        if (!confirm(`ยืนยันคืนของทั้งหมด ${selectedItems.size} รายการ?`)) return;
+
+        const borrowedRows = transactions
+            .filter(item => selectedItems.has(item.rowIndex) && item.status === 'Borrowed')
+            .map(item => item.rowIndex);
+
+        if (borrowedRows.length === 0) {
+            alert('รายการที่เลือกไม่มีรายการที่ค้างยืม (คืนครบแล้ว)');
+            return;
+        }
+
+        if (!confirm(`ยืนยันคืนของทั้งหมด ${borrowedRows.length} รายการที่เลือก?`)) return;
 
         try {
-            const res = await fetch('/api/bulk-return', {
+            const res = await fetchWithAuth('/api/bulk-return', {
                 method: 'POST',
-                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rowIndices: borrowedRows })
+            });
+            const result = await res.json();
+            if (result.success) {
+                alert(`คืนของเรียบร้อยแล้ว (${borrowedRows.length} รายการ)`);
+                setSelectedItems(new Set());
+                loadData();
+            } else alert('Error: ' + result.error);
+        } catch (err) {
+            alert('Server error: ' + err.message);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedItems.size === 0) return;
+
+        const count = selectedItems.size;
+        if (!confirm(`⚠️ คำเตือน: คุณต้องการ "ลบถาวร" ทั้งหมด ${count} รายการที่เลือกใช่หรือไม่?\n(ข้อมูลใน Google Sheet จะถูกลบทันที กู้คืนไม่ได้)`)) return;
+
+        if (!confirm(`ยืนยันเป็นครั้งสุดท้าย: ลบ ${count} รายการจริงหรือไม่?`)) return;
+
+        try {
+            const res = await fetchWithAuth('/api/bulk-delete', {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rowIndices: Array.from(selectedItems) })
             });
             const result = await res.json();
             if (result.success) {
-                alert('คืนของเรียบร้อยแล้ว!');
+                alert(`ลบรายการเรียบร้อยแล้ว (${result.count || count} รายการ)`);
+                setSelectedItems(new Set());
                 loadData();
-            } else alert('Error: ' + result.error);
+            } else alert('Error: ' + (result.error || 'ลบไม่สำเร็จ'));
         } catch (err) {
-            alert('Server error');
+            alert('Server error: ' + err.message);
         }
     };
 
     const handleReturn = async (rowIndex) => {
         if (!confirm('ยืนยันว่ารายการนี้คืนของแล้ว?')) return;
         try {
-            const res = await fetch('/api/return', {
+            const res = await fetchWithAuth('/api/return', {
                 method: 'POST',
-                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rowIndex })
             });
@@ -461,7 +489,7 @@ const AdminDashboard = () => {
             if (result.success) loadData();
             else alert('Error: ' + result.error);
         } catch (err) {
-            alert('Server error');
+            alert('Server error: ' + err.message);
         }
     };
 
@@ -472,9 +500,8 @@ const AdminDashboard = () => {
         if (!confirm('ยืนยันเป็นครั้งสุดท้าย ลบจริงหรือไม่?')) return;
 
         try {
-            const res = await fetch('/api/delete-transaction', {
+            const res = await fetchWithAuth('/api/delete-transaction', {
                 method: 'POST',
-                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rowIndex })
             });
@@ -482,18 +509,17 @@ const AdminDashboard = () => {
             if (result.success) {
                 alert('ลบรายการเรียบร้อยแล้ว');
                 loadData();
-            } else alert('Error: ' + result.error);
+            } else alert('Error: ' + (result.error || 'ลบไม่สำเร็จ'));
         } catch (err) {
-            alert('Server error');
+            alert('Server error: ' + err.message);
         }
     };
 
     const handleCleanData = async () => {
         if (!confirm('ต้องการจัดระเบียบข้อมูล "เหตุผลการยืม" อัตโนมัติหรือไม่?')) return;
         try {
-            const res = await fetch('/api/clean-reasons', {
-                method: 'POST',
-                credentials: 'include'
+            const res = await fetchWithAuth('/api/clean-reasons', {
+                method: 'POST'
             });
             const result = await res.json();
             if (result.success) {
@@ -501,7 +527,7 @@ const AdminDashboard = () => {
                 loadData();
             } else alert('Error: ' + result.error);
         } catch (err) {
-            alert('Server error');
+            alert('Server error: ' + err.message);
         }
     };
 
@@ -921,6 +947,86 @@ const AdminDashboard = () => {
                                     />
                                 </div>
 
+                                {/* Bulk Action Bar */}
+                                {selectedItems.size > 0 && (
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '12px 18px',
+                                        marginBottom: '16px',
+                                        borderRadius: '10px',
+                                        background: 'var(--card-bg)',
+                                        border: '2px solid var(--primary-color)',
+                                        boxShadow: '0 4px 14px rgba(52, 152, 219, 0.18)',
+                                        flexWrap: 'wrap',
+                                        gap: '12px'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--text-color)' }}>
+                                                เลือกอยู่: <span style={{ color: 'var(--primary-color)', fontSize: '1.15rem' }}>{selectedItems.size}</span> รายการ
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                            <button
+                                                type="button"
+                                                onClick={handleBulkReturn}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    padding: '8px 16px',
+                                                    background: '#27ae60',
+                                                    color: '#fff',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    fontWeight: '600',
+                                                    fontSize: '0.9rem',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 2px 6px rgba(39, 174, 96, 0.3)'
+                                                }}
+                                            >
+                                                <CheckCircle size={16} /> คืนรายการที่เลือก ({transactions.filter(i => selectedItems.has(i.rowIndex) && i.status === 'Borrowed').length})
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleBulkDelete}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    padding: '8px 16px',
+                                                    background: '#e74c3c',
+                                                    color: '#fff',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    fontWeight: '600',
+                                                    fontSize: '0.9rem',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 2px 6px rgba(231, 76, 60, 0.3)'
+                                                }}
+                                            >
+                                                <Trash2 size={16} /> ลบรายการที่เลือก ({selectedItems.size})
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedItems(new Set())}
+                                                style={{
+                                                    padding: '8px 14px',
+                                                    background: 'var(--hover-bg)',
+                                                    color: 'var(--text-muted)',
+                                                    border: '1px solid var(--border-color)',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.85rem',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                ยกเลิกการเลือก
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="table-wrapper">
                                     <table>
                                         <thead>
@@ -929,10 +1035,7 @@ const AdminDashboard = () => {
                                                     <input
                                                         type="checkbox"
                                                         onChange={handleSelectAll}
-                                                        checked={filteredTransactions.length > 0 && filteredTransactions
-                                                            .filter(i => i.status === 'Borrowed')
-                                                            .every(i => selectedItems.has(i.rowIndex)) && selectedItems.size > 0
-                                                        }
+                                                        checked={currentItems.length > 0 && currentItems.every(i => selectedItems.has(i.rowIndex))}
                                                     />
                                                 </th>
                                                 {visibleColumns.has('timestamp') && <ResizableHeader>วันที่ยืม</ResizableHeader>}
@@ -951,13 +1054,11 @@ const AdminDashboard = () => {
                                             {currentItems.map((item) => (
                                                 <tr key={item.rowIndex} className={selectedItems.has(item.rowIndex) ? 'selected-row' : ''}>
                                                     <td style={{ textAlign: 'center' }}>
-                                                        {item.status === 'Borrowed' && (
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selectedItems.has(item.rowIndex)}
-                                                                onChange={() => handleSelectItem(item.rowIndex)}
-                                                            />
-                                                        )}
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedItems.has(item.rowIndex)}
+                                                            onChange={() => handleSelectItem(item.rowIndex)}
+                                                        />
                                                     </td>
                                                     {visibleColumns.has('timestamp') && <td data-label="วันที่ยืม">{item.timestamp ? item.timestamp.split(' ')[0] : '-'}</td>}
                                                     {visibleColumns.has('school') && <td data-label="โรงเรียน">{item.school}</td>}
