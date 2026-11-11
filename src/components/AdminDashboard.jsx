@@ -183,7 +183,7 @@ const AdminDashboard = () => {
             if (errMsg) setDataLoadError(errMsg);
             else setDataLoadError('');
             const data = await res.json();
-            const sorted = [...(Array.isArray(data) ? data : [])].reverse();
+            const sorted = [...(Array.isArray(data) ? data : [])].sort((a, b) => (b.rowIndex || 0) - (a.rowIndex || 0));
             setTransactions(sorted);
             setFilteredTransactions(sorted);
             setLastUpdated(new Date());

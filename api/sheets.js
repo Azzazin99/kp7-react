@@ -38,11 +38,7 @@ function getAuth() {
 
 export async function getSheets() {
     if (sheetsClient) return sheetsClient;
-    const spreadsheetId = process.env.SPREADSHEET_ID;
-    if (!spreadsheetId) {
-        console.warn('SPREADSHEET_ID not set');
-        return null;
-    }
+    const spreadsheetId = process.env.SPREADSHEET_ID || '1v-b42PSXONWdchsyj9RWy_IVeCAoTCKOnn0SOEFh20E';
     const auth = await getAuth();
     if (!auth) return null;
     const sheets = google.sheets({ version: 'v4', auth });

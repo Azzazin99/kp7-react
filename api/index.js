@@ -174,6 +174,7 @@ async function getPersonnelRows() {
         position: (row[2] || '').trim(),
         coordCenter: (row[3] || '').trim() || '-',
         folderNo: (row[4] || '').trim() || '-',
+        phone: (row[5] || '').trim() || '-',
         rowIndex: start + i + 1
     })).filter(r => r.school || r.name);
 }
@@ -197,6 +198,9 @@ function buildPersonnelMap(personnelRows) {
     for (const p of personnelRows) {
         const key = `${p.school}|${p.name}`;
         map[key] = p;
+        if (!map[p.name]) {
+            map[p.name] = p; // fallback by name if school has minor mismatch
+        }
     }
     return map;
 }
@@ -358,7 +362,7 @@ app.get('/api/transactions', requireAuth, async (req, res) => {
         const personMap = buildPersonnelMap(personnelRows);
         const transactions = txRows.map(r => {
             const key = `${r.school}|${r.name}`;
-            const p = personMap[key];
+            const p = personMap[key] || personMap[r.name];
             return {
                 rowIndex: r.rowIndex,
                 timestamp: r.timestamp,
@@ -369,10 +373,11 @@ app.get('/api/transactions', requireAuth, async (req, res) => {
                 returnTimestamp: r.returnTimestamp || '',
                 coordCenter: p ? p.coordCenter : '-',
                 folderNo: p ? p.folderNo : '-',
-                position: p ? p.position : '-'
+                position: p ? p.position : '-',
+                phone: p ? (p.phone || '-') : '-'
             };
         });
-        res.json(transactions.reverse());
+        res.json(transactions);
     } catch (error) {
         console.error('GET /api/transactions error:', error.message);
         res.setHeader('X-Data-Error', error.message || String(error));
@@ -460,7 +465,7 @@ async function getTransactionsData() {
         const personMap = buildPersonnelMap(personnelRows);
         return txRows.map(r => {
             const key = `${r.school}|${r.name}`;
-            const p = personMap[key];
+            const p = personMap[key] || personMap[r.name];
             return {
                 rowIndex: r.rowIndex,
                 timestamp: r.timestamp,
@@ -470,7 +475,8 @@ async function getTransactionsData() {
                 status: r.status,
                 returnTimestamp: r.returnTimestamp || '',
                 coordCenter: p ? p.coordCenter : '-',
-                folderNo: p ? p.folderNo : '-'
+                folderNo: p ? p.folderNo : '-',
+                phone: p ? (p.phone || '-') : '-'
             };
         });
     } catch (e) {
